@@ -233,7 +233,7 @@ class TrecEval:
             topX = self.run.run_data.groupby("query")[["query","docid"]].head(depth)
 
         # check number of queries
-        nqueries = len(self.qrels.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         selection = pd.merge(topX, self.qrels.qrels_data[["query","docid","rel"]], how="left")
         selection[label] = selection["rel"].isnull()
@@ -269,7 +269,7 @@ class TrecEval:
         qrels = self.qrels.qrels_data
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         if removeUnjudged:
             onlyjudged = pd.merge(run, qrels[["query","docid","rel"]], how="left")
@@ -322,7 +322,7 @@ class TrecEval:
         """
         from scipy.stats.mstats import gmean
         maps = self.get_map(depth=depth, trec_eval=trec_eval, per_query=True)
-        maps = maps.replace(0.0, self.GMEAN_MIN)
+        maps = maps.dropna().replace(0.0, self.GMEAN_MIN)
         return gmean(maps)[0]
 
 
@@ -356,7 +356,7 @@ class TrecEval:
             topX = self.run.run_data.groupby("query")[["query","docid","score"]].head(depth)
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         # Make sure that rank position starts by 1
         topX["rank"] = 1
@@ -407,7 +407,7 @@ class TrecEval:
         qrels = self.qrels.qrels_data
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         if removeUnjudged:
             onlyjudged = pd.merge(run, qrels[["query","docid","rel"]], how="left")
@@ -421,10 +421,10 @@ class TrecEval:
             topX = self.run.run_data.groupby("query")[["query","docid","score"]].head(depth)
 
         # gets the number of relevant documents per query
-        n_relevant_docs = self.get_relevant_documents(per_query = True)
+        n_relevant_docs = self.get_relevant_documents(per_query=True)
 
         # Gets only the top R documents per topic:
-        topX = topX.groupby("query").apply(lambda x: x.head(n_relevant_docs.loc[x.name])).reset_index(drop=True)
+        topX = topX.groupby("query").apply(lambda x: x.head(n_relevant_docs.loc[x.name] if x.name in n_relevant_docs else None)).reset_index(drop=True)
 
         relevant_docs = qrels[qrels.rel > 0]
         selection = pd.merge(topX, relevant_docs[["query","docid","rel"]], how="left")
@@ -466,7 +466,7 @@ class TrecEval:
         qrels = self.qrels.qrels_data
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         if removeUnjudged:
             onlyjudged = pd.merge(run, qrels[["query","docid","rel"]], how="left")
@@ -538,7 +538,7 @@ class TrecEval:
         label = "Bpref@%d" % (depth)
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         qrels = self.qrels.qrels_data.copy()
         run = self.run.run_data
@@ -551,19 +551,22 @@ class TrecEval:
 
         # Denominator is the minimal of the two dataframes. Using 'where' clause as a 'min'
         # denominator = min(total_rel_per_query, total_nrel_per_query)
+        # TODO: problem when a given query has all its documents judged as relevant
+        # in this case, total_nrel_per_query is 0. Formula is not clear what to do.
         denominator = total_rel_per_query.where(total_rel_per_query < total_nrel_per_query, total_nrel_per_query)
+        #denominator = total_rel_per_query
         denominator.name = "denominator"
 
-        merged = pd.merge(run, qrels[["query","docid","rel"]], how="left")
+        merged = pd.merge(run, qrels[["query", "docid", "rel"]], how="left")
 
         if trec_eval:
-            merged.sort_values(["query", "score", "docid"], ascending=[True,False,False], inplace=True)
+            merged.sort_values(["query", "score", "docid"], ascending=[True, False, False], inplace=True)
 
         # We explicitly remove unjudged documents
         merged = merged[~merged.rel.isnull()]
 
         # Select only topX documents per query
-        merged = merged.groupby("query")[["query","docid","rel"]].head(depth)
+        merged = merged.groupby("query")[["query", "docid", "rel"]].head(depth)
 
         merged["is_nrel"] = merged["rel"] == 0
         merged["nrel_so_far"] = merged.groupby("query")["is_nrel"].cumsum()
@@ -571,7 +574,7 @@ class TrecEval:
         merged = pd.merge(merged, total_rel_per_query.reset_index(), on="query", how="left")
         merged = pd.merge(merged, denominator.reset_index(), on="query", how="left")
 
-        merged[label] = (1.0 - (1.0 * merged[["nrel_so_far","rels_per_query"]].min(axis=1) / merged["denominator"])) / merged["rels_per_query"]
+        merged[label] = (1.0 - (1.0 * merged[["nrel_so_far", "rels_per_query"]].min(axis=1) / merged["denominator"])) / merged["rels_per_query"]
 
         # Accumulates scores only for relevant documents retrieved
         merged = merged[~merged["is_nrel"]]
@@ -595,7 +598,7 @@ class TrecEval:
         label = "uBpref@%d" % (depth)
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         qrels = self.qrels.qrels_data.copy()
         other = other_qrels.qrels_data.copy()
@@ -661,27 +664,28 @@ class TrecEval:
         """
         label = "P@%d" % (depth)
 
-        # check number of queries
-        nqueries = len(self.run.topics())
+        # Get the number of queries in both qrel and run
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         qrels = self.qrels.qrels_data
         run = self.run.run_data
 
-        merged = pd.merge(run[["query", "docid", "score"]], qrels[["query","docid","rel"]], how="left")
+        merged = pd.merge(run[["query", "docid", "score"]], qrels[["query", "docid", "rel"]], how="left")
 
         if trec_eval:
-            merged.sort_values(["query", "score", "docid"], ascending=[True,False,False], inplace=True)
+            merged.sort_values(["query", "score", "docid"], ascending=[True, False, False], inplace=True)
 
         if removeUnjudged:
             merged = merged[~merged.rel.isnull()]
 
-        topX = merged.groupby("query")[["query","docid","rel"]].head(depth)
+        topX = merged.groupby("query")[["query", "docid", "rel"]].head(depth)
         topX[label] = topX["rel"] > 0
         pX_per_query = topX[["query", label]].groupby("query").sum().astype(np.int) / depth
 
         if per_query:
             """ This will return a pandas dataframe with ["query", "P@X"] values """
             return pX_per_query
+
         return (pX_per_query.sum() / nqueries)[label]
 
     def get_rbp(self, p=0.8, depth=1000, per_query=False, binary_topical_relevance=True, average_ties=True, removeUnjudged=False):
@@ -710,7 +714,7 @@ class TrecEval:
         qrels = self.qrels.qrels_data
 
         # check number of queries
-        nqueries = len(self.run.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         if removeUnjudged:
             onlyjudged = pd.merge(run, qrels[["query","docid","rel"]], how="left")
@@ -780,7 +784,7 @@ class TrecEval:
         label = "uRBP(%.2f)@%d" % (p, depth)
 
         # check number of queries
-        nqueries = len(self.qrels.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         run = self.run.run_data
         qrels = self.qrels.qrels_data
@@ -858,7 +862,7 @@ class TrecEval:
         topX = self.run.run_data.groupby("query")[["query","docid","score"]].head(depth)
 
         # check number of queries
-        nqueries = len(self.qrels.topics())
+        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
 
         # Make sure that rank position starts by 1
         topX["rank"] = 1
