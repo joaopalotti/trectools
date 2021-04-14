@@ -474,7 +474,12 @@ class TrecEval:
             run = onlyjudged[["query","q0","docid","rank","score","system"]]
 
         # Select only topX documents per query
-        topX = run.groupby("query")[["query","docid","score"]].head(depth)
+        if trec_eval:
+            trecformat = self.run.run_data.sort_values(["query", "score", "docid"],
+                                                       ascending=[True, False, False]).reset_index()
+            topX = trecformat.groupby("query")[["query", "docid", "score"]].head(depth)
+        else:
+            topX = self.run.run_data.groupby("query")[["query", "docid", "score"]].head(depth)
 
         # Make sure that rank position starts by 1
         topX["rank"] = 1
