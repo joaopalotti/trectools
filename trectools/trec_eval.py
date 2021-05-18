@@ -509,6 +509,9 @@ class TrecEval:
         idcg_per_query = perfect_ranking[["query",label]].groupby("query").sum()
         ndcg_per_query = dcg_per_query / idcg_per_query
 
+        #NDCG is 0 if IDCG=0
+        ndcg_per_query.fillna(0.0)
+
         if per_query:
             return ndcg_per_query
 
