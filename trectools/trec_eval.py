@@ -464,11 +464,15 @@ class TrecEval:
 
         label = "NDCG@%d" % (depth)
 
-        run = self.run.run_data
-        qrels = self.qrels.qrels_data
+        run = self.run.run_data.copy()
+        qrels = self.qrels.qrels_data.copy()
 
-        # check number of queries
-        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
+        # check number of topics
+        common_topics = set(self.run.topics()) & set(self.qrels.topics())
+        ntopics = len(common_topics)
+
+        run = run[run["query"].isin(common_topics)]
+        qrels = qrels[qrels["query"].isin(common_topics)]
 
         if removeUnjudged:
             onlyjudged = pd.merge(run, qrels[["query", "docid", "rel"]], how="left")
@@ -477,11 +481,11 @@ class TrecEval:
 
         # Select only topX documents per query
         if trec_eval:
-            trecformat = self.run.run_data.sort_values(["query", "score", "docid"],
+            trecformat = run.sort_values(["query", "score", "docid"],
                                                        ascending=[True, False, False]).reset_index()
             topX = trecformat.groupby("query")[["query", "docid", "score"]].head(depth)
         else:
-            topX = self.run.run_data.groupby("query")[["query", "docid", "score"]].head(depth)
+            topX = run.groupby("query")[["query", "docid", "score"]].head(depth)
 
         # Make sure that rank position starts by 1
         topX["rank"] = 1
@@ -500,7 +504,7 @@ class TrecEval:
             selection[label] = (2 ** selection["rel"] - 1.0) * selection["discount"]
 
         # Calculate IDCG
-        perfect_ranking = relevant_docs.sort_values(["query", "rel"], ascending=[True, False]).reset_index(drop=True)
+        perfect_ranking = qrels.sort_values(["query", "rel"], ascending=[True, False]).reset_index(drop=True)
         perfect_ranking = perfect_ranking.groupby("query").head(depth)
 
         perfect_ranking["rank"] = 1
@@ -516,13 +520,16 @@ class TrecEval:
         idcg_per_query = perfect_ranking[["query", label]].groupby("query").sum()
         ndcg_per_query = dcg_per_query / idcg_per_query
 
+        # NDCG is 0 if IDCG=0
+        ndcg_per_query = ndcg_per_query.fillna(0.0)
+
         if per_query:
             return ndcg_per_query
 
         if ndcg_per_query.empty:
             return 0.0
 
-        return (ndcg_per_query.sum() / nqueries)[label]
+        return (ndcg_per_query.sum() / ntopics)[label]
 
     def get_bpref(self, depth=1000, per_query=False, trec_eval=True):
         """
