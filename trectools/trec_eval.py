@@ -457,7 +457,7 @@ class TrecEval:
             Returns
             --------
             if per_query == True: returns a pandas dataframe with two cols (query, NDCG@d)
-            else: returns a float value representing the RPrec.
+            else: returns a float value representing the NDCG.
         """
 
         label = "NDCG@%d" % (depth)
@@ -510,7 +510,7 @@ class TrecEval:
         ndcg_per_query = dcg_per_query / idcg_per_query
 
         #NDCG is 0 if IDCG=0
-        ndcg_per_query.fillna(0.0)
+        ndcg_per_query = ndcg_per_query.fillna(0.0)
 
         if per_query:
             return ndcg_per_query
