@@ -182,7 +182,7 @@ class TrecEval:
 
             Returns
             --------
-            if per_query == True: returns a pandas dataframe with two cols (query, nrelevant_per_query)
+            if per_query == True: returns a pandas dataframe with two cols (query, num_relevant_per_query)
             else: returns the total number of relevant documents for all queries.
 
         """
@@ -259,8 +259,8 @@ class TrecEval:
 
             Returns
             --------
-            if per_query == True: returns a pandas dataframe with two cols (query, MAP@X)
-            else: returns a float value representing the MAP@deph.
+            if per_query == True: returns a pandas dataframe with two cols (query, recip_rank@d)
+            else: returns a float value representing the recip_rank@d.
 
         """
 
@@ -339,8 +339,8 @@ class TrecEval:
 
             Returns
             --------
-            if per_query == True: returns a pandas dataframe with two cols (query, MAP@X)
-            else: returns a float value representing the MAP@deph.
+            if per_query == True: returns a pandas dataframe with two cols (query, MAP@d)
+            else: returns a float value representing the MAP@d.
         """
         # ToDo: missing option to remove unjuged documents.
 
@@ -399,8 +399,8 @@ class TrecEval:
 
             Returns
             --------
-            if per_query == True: returns a pandas dataframe with two cols (query, RPrec)
-            else: returns a float value representing the RPrec.
+            if per_query == True: returns a pandas dataframe with two cols (query, RPrec@d)
+            else: returns a float value representing the RPrec@d.
         """
         label = "RPrec@%d" % (depth)
 
@@ -459,7 +459,7 @@ class TrecEval:
             Returns
             --------
             if per_query == True: returns a pandas dataframe with two cols (query, NDCG@d)
-            else: returns a float value representing the RPrec.
+            else: returns a float value representing the NDCG@d.
         """
 
         label = "NDCG@%d" % (depth)
@@ -543,9 +543,8 @@ class TrecEval:
 
             Returns
             --------
-            if per_query == True: returns a pandas dataframe with two cols (query, NDCG@d)
-            else: returns a float value representing the RPrec.
-
+            if per_query == True: returns a pandas dataframe with two cols (query, BPref@d)
+            else: returns a float value representing the BPref@d.
         """
 
         label = "Bpref@%d" % (depth)
@@ -675,7 +674,7 @@ class TrecEval:
             Returns
             --------
             if per_query == True: returns a pandas dataframe with two cols (query, P@d)
-            else: returns a float value representing the RPrec.
+            else: returns a float value representing the P@d.
 
         """
         label = "P@%d" % (depth)
