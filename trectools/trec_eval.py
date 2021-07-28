@@ -508,7 +508,7 @@ class TrecEval:
 
         # Calculate IDCG
         perfect_ranking = qrels.sort_values(["query", "rel"], ascending=[True, False]).reset_index(drop=True)
-        perfect_ranking = perfect_ranking.groupby("query").head(depth)
+        # perfect_ranking = perfect_ranking.groupby("query").head(depth) # TREC_Eval does not cut the IDCG rank
 
         perfect_ranking["rank"] = 1
         perfect_ranking["rank"] = perfect_ranking.groupby("query")["rank"].cumsum()
@@ -550,15 +550,17 @@ class TrecEval:
             else: returns a float value representing the BPref@d.
         """
 
-        label = "Bpref@%d" % (depth)
+        label = "Bpref@%d" % depth
 
-        # check number of queries
-        nqueries = len(set(self.run.topics()) & set(self.qrels.topics()))
+        # Check number of queries
+        queries = set(self.run.topics()) & set(self.qrels.topics())
+        nqueries = len(queries)
 
         qrels = self.qrels.qrels_data.copy()
         run = self.run.run_data
 
-        # number of relevant and non-relevant documents per query:
+        # Number of relevant and non-relevant documents per query:
+        qrels = qrels[qrels["query"].isin(queries)]
         qrels["is_rel_per_query"] = qrels["rel"] > 0
         total_rel_per_query = qrels.groupby("query")["is_rel_per_query"].sum()
         total_nrel_per_query = qrels.groupby("query")["is_rel_per_query"].count() - qrels.groupby("query")[
@@ -569,7 +571,7 @@ class TrecEval:
         # denominator = min(total_rel_per_query, total_nrel_per_query)
         # TODO: problem when a given query has all its documents judged as relevant
         # in this case, total_nrel_per_query is 0. Formula is not clear what to do.
-        denominator = total_rel_per_query.where(total_rel_per_query < total_nrel_per_query, total_nrel_per_query)
+        denominator = total_rel_per_query.where(total_rel_per_query < total_nrel_per_query, total_nrel_per_query.replace(0, 1))
         denominator.name = "denominator"
 
         merged = pd.merge(run, qrels[["query", "docid", "rel"]], how="left")
