@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from trectools import TrecRun, TrecQrel, TrecEval
 
 
@@ -14,10 +15,18 @@ class TestTrecEval(unittest.TestCase):
 
         # Contains the first 30 documents for the first 10 topics in input.uic0301
         run3 = TrecRun("./unittests/files/input.uic0301_top30")
+
+        # All documents retrieved are not relevant to qrel1.txt
+        no_rel_run = TrecRun("./unittests/files/r5.run")
+        # All documents retrieved have no labels
+        no_labels_run = TrecRun("./unittests/files/r6.run")
+
         self.common_topics = ["303", "307", "310", "314", "320", "322", "325", "330", "336", "341"]
         self.teval1 = TrecEval(run1, qrels1)
         self.teval2 = TrecEval(run2, qrels2)
         self.teval3 = TrecEval(run3, qrels2)
+        self.teval_no_rel = TrecEval(no_rel_run, qrels1)
+        self.teval_no_labels = TrecEval(no_labels_run, qrels1)
 
     def tearDown(self):
         pass
@@ -117,6 +126,39 @@ class TestTrecEval(unittest.TestCase):
         values = map(float, results.loc[["607", "433", "375", "303"]].values)
         for v, c in zip(values, correct_results):
             self.assertAlmostEqual(v, c, places=4)
+
+    def test_no_relevant_retrieved(self):
+        result = self.teval_no_rel.evaluate_all(per_query=True)
+
+        # All of these should be 0
+        metrics = []
+        depths = [5, 10, 15, 20, 30, 100, 200, 500, 100]
+        metrics += [f"NDCG_{i}" for i in depths]
+        metrics += [f"P_{i}" for i in depths]
+        metrics += [f"R_{i}" for i in depths]
+        metrics += ["map", "Rprec", "num_rel_ret"]
+        # recip_rank could arguably be included
+
+        metrics = result.data[result.data["metric"].isin(metrics)]
+
+        self.assertTrue(np.allclose(metrics["value"].values.astype(np.float32), 0))
+
+    def test_no_labels_retrieved(self):
+        result = self.teval_no_labels.evaluate_all(per_query=True)
+
+        # All of these should be 0
+        metrics = []
+        depths = [5, 10, 15, 20, 30, 100, 200, 500, 100]
+        metrics += [f"NDCG_{i}" for i in depths]
+        metrics += [f"P_{i}" for i in depths]
+        metrics += [f"R_{i}" for i in depths]
+        metrics += ["map", "Rprec", "num_rel_ret"]
+        # recip_rank could arguably be included
+
+        metrics = result.data[result.data["metric"].isin(metrics)]
+        self.assertTrue(np.allclose(metrics["value"].values.astype(np.float32), 0))
+
+
 
 
 if __name__ == '__main__':

@@ -447,7 +447,7 @@ class TrecEval:
         selection = pd.merge(topX, relevant_docs[["query","docid","rel"]], how="left")
         selection = selection[~selection["rel"].isnull()]
 
-        rprec_per_query = selection.groupby("query")["docid"].count() / n_relevant_docs
+        rprec_per_query = selection.groupby("query")["docid"].count().div(n_relevant_docs, fill_value=0)
         rprec_per_query.name = label
         rprec_per_query = rprec_per_query.reset_index().set_index("query")
 
@@ -524,7 +524,7 @@ class TrecEval:
         # DCG is the sum of individual's contribution
         dcg_per_query = selection[["query", label]].groupby("query").sum()
         idcg_per_query = perfect_ranking[["query",label]].groupby("query").sum()
-        ndcg_per_query = dcg_per_query / idcg_per_query
+        ndcg_per_query = dcg_per_query.div(idcg_per_query, fill_value=0.0)
 
         if per_query:
             return ndcg_per_query
